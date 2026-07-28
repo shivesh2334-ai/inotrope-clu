@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS Vasoactive Selector — Cardiogenic Shock Inotrope/Vasopressor Decision Support</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F6F6;
+    --surface:#FFFFFF;
+    --ink:#132126;
+    --ink-soft:#48595E;
+    --line:#D8E1E1;
+    --teal:#0E6B66;
+    --teal-deep:#0A4F4C;
+    --teal-tint:#E4F1EF;
+    --amber:#9A5B1E;
+    --amber-tint:#FBEEDD;
+    --red:#A3352E;
+    --red-tint:#F8E7E4;
+    --mono:'IBM Plex Mono', monospace;
+    --serif:'Source Serif 4', Georgia, serif;
+    --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 80px;}
+
+  header{display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-bottom:22px; border-bottom:2px solid var(--ink); padding-bottom:16px; flex-wrap:wrap;}
+  .brand-eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal-deep); margin-bottom:6px;}
+  h1{font-family:var(--serif); font-weight:600; font-size:30px; letter-spacing:-.01em;}
+  .source-note{font-size:12.5px; color:var(--ink-soft); max-width:320px; text-align:right;}
+  .source-note a{color:var(--teal-deep);}
+
+  .stage-rail{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:18px 22px 16px; margin-bottom:20px;
+  }
+  .stage-rail-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+  .stage-rail-top h2{font-family:var(--serif); font-size:16px; font-weight:600;}
+  .stage-rail-top span{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+  .rail-track{position:relative; height:34px; border-radius:6px; overflow:hidden; display:flex;}
+  .rail-seg{flex:1; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:#fff; cursor:pointer; transition:transform .12s ease; user-select:none;}
+  .rail-seg:hover{transform:translateY(-1px);}
+  .rail-seg[data-v="0"]{background:#2F8A76;}
+  .rail-seg[data-v="1"]{background:#C7862E;}
+  .rail-seg[data-v="2"]{background:#A3352E;}
+  .rail-seg.active{outline:3px solid var(--ink); outline-offset:-3px;}
+  .rail-caption{margin-top:9px; font-size:12.5px; color:var(--ink-soft);}
+  .rail-caption strong{color:var(--ink);}
+
+  .grid{display:grid; grid-template-columns:380px 1fr; gap:20px;}
+  @media (max-width:880px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:22px;}
+  .panel h2{font-family:var(--serif); font-size:17px; font-weight:600; margin-bottom:4px;}
+  .panel .sub{font-size:12px; color:var(--ink-soft); margin-bottom:16px;}
+
+  fieldset{border:none; margin-bottom:20px;}
+  legend{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--teal-deep); margin-bottom:8px; display:block;}
+  .opt{display:flex; align-items:flex-start; gap:9px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; margin-bottom:6px; cursor:pointer; transition:border-color .1s, background .1s;}
+  .opt:hover{border-color:var(--teal);}
+  .opt input{margin-top:3px; accent-color:var(--teal-deep);}
+  .opt.checked{border-color:var(--teal-deep); background:var(--teal-tint);}
+  .opt label{font-size:13.5px; cursor:pointer; flex:1;}
+  .opt .hint{display:block; font-size:11.5px; color:var(--ink-soft); margin-top:1px;}
+
+  .rec-head{display:flex; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;}
+  .badge{font-family:var(--mono); font-size:11px; letter-spacing:.05em; padding:4px 10px; border-radius:20px; border:1px solid var(--line); color:var(--ink-soft);}
+  .badge.aet{border-color:var(--teal-deep); color:var(--teal-deep); font-weight:600;}
+
+  .rec-block{border:1px solid var(--line); border-radius:9px; margin-bottom:14px; overflow:hidden;}
+  .rec-block-head{padding:11px 16px; background:var(--ink); color:#fff; display:flex; justify-content:space-between; align-items:center;}
+  .rec-block-head h3{font-family:var(--serif); font-size:14.5px; font-weight:600;}
+  .rec-block-head .tag{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; opacity:.75;}
+  .rec-block-body{padding:14px 16px;}
+  .drug-row{display:flex; justify-content:space-between; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line); gap:12px;}
+  .drug-row:last-child{border-bottom:none;}
+  .drug-name{font-weight:600; font-size:14px;}
+  .drug-dose{font-family:var(--mono); font-size:12px; color:var(--teal-deep); text-align:right; white-space:nowrap;}
+  .rationale{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+
+  .flag{display:flex; gap:9px; align-items:flex-start; padding:10px 12px; border-radius:7px; font-size:12.5px; margin-bottom:8px;}
+  .flag.warn{background:var(--amber-tint); color:#6b3d10;}
+  .flag.avoid{background:var(--red-tint); color:#742620;}
+  .flag .dot{font-family:var(--mono); font-weight:700; flex-shrink:0;}
+
+  .evidence{font-size:11.5px; color:var(--ink-soft); border-top:1px solid var(--line); margin-top:16px; padding-top:12px;}
+  .evidence strong{color:var(--ink);}
+
+  footer{margin-top:28px; font-size:11.5px; color:var(--ink-soft); border-top:1px solid var(--line); padding-top:14px;}
+  footer a{color:var(--teal-deep);}
+  .disclaimer{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--amber); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--ink-soft); margin-top:20px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow">EMC Digitals · Clinical Decision Support</div>
+      <h1>Vasoactive Selector — Cardiogenic Shock</h1>
+    </div>
+    <div class="source-note">Logic derived from Riccardi et al., <em>Eur J Heart Fail</em> 2024;26:411–431 (Figures 2–3, Table 2). For clinician use alongside bedside judgment and haemodynamic monitoring — not a substitute for either.</div>
+  </header>
+
+  <div class="stage-rail">
+    <div class="stage-rail-top">
+      <h2>Vasopressor treatment stage</h2>
+      <span id="stageMeta">MECHANICAL EFFICIENCY</span>
+    </div>
+    <div class="rail-track">
+      <div class="rail-seg active" data-v="0" onclick="setStage(0)">Mechanical efficiency</div>
+      <div class="rail-seg" data-v="1" onclick="setStage(1)">Mechanical inefficiency</div>
+      <div class="rail-seg" data-v="2" onclick="setStage(2)">Metabolic inefficiency</div>
+    </div>
+    <div class="rail-caption" id="stageCaption"></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Patient profile</h2>
+      <div class="sub">Select the closest match — recommendations update live.</div>
+
+      <fieldset>
+        <legend>Aetiology</legend>
+        <div class="opt" data-group="aet" data-val="ami"><input type="radio" name="aet" value="ami" checked><label>AMI-CS<span class="hint">Acute myocardial infarction — culprit vessel revascularised or being revascularised</span></label></div>
+        <div class="opt" data-group="aet" data-val="adhf"><input type="radio" name="aet" value="adhf"><label>ADHF-CS<span class="hint">Acute decompensated heart failure — de novo or chronic HF decompensation</span></label></div>
+        <div class="opt" data-group="aet" data-val="rv"><input type="radio" name="aet" value="rv"><label>RV-predominant CS<span class="hint">Right ventricular failure driving the shock state</span></label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Haemodynamic profile</legend>
+        <div class="opt" data-group="hd" data-val="hypo"><input type="radio" name="hd" value="hypo" checked><label>Hypotension prevails<span class="hint">SBP &lt;90 mmHg or MAP &lt;65 mmHg — perfusion pressure is the immediate threat</span></label></div>
+        <div class="opt" data-group="hd" data-val="normo"><input type="radio" name="hd" value="normo"><label>"Normotensive" CS<span class="hint">Low cardiac output / hypoperfusion without marked hypotension</span></label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Chronic β-blocker therapy</legend>
+        <div class="opt" data-group="bb" data-val="yes"><input type="radio" name="bb" value="yes"><label>Yes<span class="hint">Favours agents that bypass the β-adrenergic receptor</span></label></div>
+        <div class="opt" data-group="bb" data-val="no"><input type="radio" name="bb" value="no" checked><label>No / unknown</label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Renal function</legend>
+        <div class="opt" data-group="renal" data-val="impaired"><input type="radio" name="renal" value="impaired"><label>Significant impairment<span class="hint">Milrinone is renally cleared — use with caution, adjust dose</span></label></div>
+        <div class="opt" data-group="renal" data-val="normal"><input type="radio" name="renal" value="normal" checked><label>Normal / mild impairment</label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Bradycardia risk</legend>
+        <div class="opt" data-group="brady" data-val="yes"><input type="radio" name="brady" value="yes"><label>Persistent / significant bradycardia<span class="hint">Favours agents with chronotropic support; pacing if persistent</span></label></div>
+        <div class="opt" data-group="brady" data-val="no"><input type="radio" name="brady" value="no" checked><label>No</label></div>
+      </fieldset>
+    </div>
+
+    <div class="panel">
+      <div class="rec-head">
+        <h2 style="margin-right:auto;">Recommendation</h2>
+        <span class="badge aet" id="badgeAet">AMI-CS</span>
+        <span class="badge" id="badgeHd">Hypotension prevails</span>
+        <span class="badge" id="badgeStage">Mechanical efficiency</span>
+      </div>
+
+      <div class="rec-block">
+        <div class="rec-block-head"><h3>First-line</h3><span class="tag">Rescue phase</span></div>
+        <div class="rec-block-body" id="firstLine"></div>
+      </div>
+
+      <div class="rec-block">
+        <div class="rec-block-head" style="background:var(--teal-deep);"><h3>If refractory / second-line</h3><span class="tag">Escalation</span></div>
+        <div class="rec-block-body" id="secondLine"></div>
+      </div>
+
+      <div id="flags"></div>
+
+      <div class="evidence" id="evidenceNote"></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Scope of evidence.</strong> Per the source review: no pharmacological therapy has proven mortality benefit in cardiogenic shock (DOREMI, LIDO, SURVIVE, SOAP-II and the Cochrane meta-analysis were consistently neutral or only hypothesis-generating). This tool encodes a therapeutic algorithm built from a mix of RCTs and observational registries where trial data is absent, and is intended to structure — not replace — bedside decision-making, invasive haemodynamic assessment, and escalation planning to MCS.
+  </div>
+
+  <footer>
+    Built on Riccardi M, Pagnesi M, Chioncel O, et al. Medical therapy of cardiogenic shock: contemporary use of inotropes and vasopressors. <em>Eur J Heart Fail</em>. 2024;26:411–431. doi:10.1002/ejhf.3162 — dosing figures drawn from the article text (norepinephrine, dobutamine, milrinone, levosimendan, epinephrine, vasopressin sections).
+  </footer>
+</div>
+
+<script>
+const state = { aet:'ami', hd:'hypo', bb:'no', renal:'normal', brady:'no', stage:0 };
+
+const stageInfo = [
+  { label:'MECHANICAL EFFICIENCY', caption:'SVR and MAP rising appropriately with vasopressor dose. <strong>Norepinephrine remains first-line.</strong>' },
+  { label:'MECHANICAL INEFFICIENCY', caption:'Microcirculatory dysfunction emerging — macro/micro disconnection, MAP trending down despite dose increases. <strong>Reassess volume, consider MCS escalation; do not simply keep raising norepinephrine.</strong>' },
+  { label:'METABOLIC INEFFICIENCY', caption:'Adrenoreceptor desensitisation, vasoplegia, acidosis ± SIRS. <strong>Consider switching norepinephrine → vasopressin</strong> rather than further catecholamine escalation.' }
+];
+
+function setStage(v){
+  state.stage = v;
+  document.querySelectorAll('.rail-seg').forEach(el=>el.classList.toggle('active', +el.dataset.v===v));
+  document.getElementById('stageMeta').textContent = stageInfo[v].label;
+  document.getElementById('stageCaption').innerHTML = stageInfo[v].caption;
+  document.getElementById('badgeStage').textContent = stageInfo[v].label.charAt(0)+stageInfo[v].label.slice(1).toLowerCase();
+  render();
+}
+
+document.querySelectorAll('.opt').forEach(opt=>{
+  const input = opt.querySelector('input');
+  opt.addEventListener('click', ()=>{
+    input.checked = true;
+    const group = opt.dataset.group;
+    state[group] = opt.dataset.val;
+    document.querySelectorAll(`.opt[data-group="${group}"]`).forEach(o=>o.classList.toggle('checked', o===opt));
+    render();
+  });
+  if(input.checked) opt.classList.add('checked');
+});
+
+const inodilatorLine = {
+  ami:   { normo:['Dobutamine','Milrinone','Levosimendan'] },
+  adhf:  { normo:['Dobutamine','Milrinone','Epinephrine + sodium nitroprusside','Levosimendan'] },
+  rv:    { normo:['Milrinone','Levosimendan'] }
+};
+const secondLineMap = { ami:['Dobutamine','Levosimendan'], adhf:['Dobutamine','Levosimendan'], rv:['Milrinone','Levosimendan','Dobutamine'] };
+
+const doses = {
+  'Norepinephrine':'0.02–1 µg/kg/min; taper 0.1 µg/kg/min per hour',
+  'Vasopressin':'Consider add-on in vasoplegia — limited CS-specific dosing data',
+  'Dobutamine':'Up to 15 µg/kg/min; taper 0.1 µg/kg/min/hr or 0.5 µg/kg/min at 6h',
+  'Milrinone':'0.0625–0.5 µg/kg/min (renally cleared — caution in impairment)',
+  'Levosimendan':'Standard trial regimens ~0.1 µg/kg/min infusion (see LIDO/SURVIVE dosing)',
+  'Epinephrine + sodium nitroprusside':'Epinephrine per protocol + nitroprusside for afterload — reserve for select ADHF-CS, monitor lactate closely'
+};
+
+const rationale = {
+  'Norepinephrine':'Vasopressor of choice in CS with hypotension — safer than dopamine (SOAP-II), vasopressin, or epinephrine (OptimaCC), with lower arrhythmia risk.',
+  'Dobutamine':'Potent β1 inotrope; effects on MAP depend on relative CO vs SVR change — combine with norepinephrine if SVR falls excessively.',
+  'Milrinone':'Non-catecholamine PDE-III inhibitor; bypasses β-receptor, so unaffected by chronic β-blockade. DOREMI showed no significant difference vs dobutamine.',
+  'Levosimendan':'Calcium sensitiser; effect preserved with β-blocker pretreatment. Evidence in CS is limited and not conclusive on survival (Cochrane 2020).',
+  'Epinephrine + sodium nitroprusside':'Not first-line as monotherapy (OptimaCC: higher refractory shock vs norepinephrine) — only in the specific ADHF-CS pathway with afterload co-management.',
+  'Vasopressin':'Logical switch once vasoplegia/metabolic inefficiency dominates — avoids further catecholamine-driven adrenoreceptor desensitisation.'
+};
+
+function badgeText(){
+  document.getElementById('badgeAet').textContent = {ami:'AMI-CS',adhf:'ADHF-CS',rv:'RV-predominant CS'}[state.aet];
+  document.getElementById('badgeHd').textContent = state.hd==='hypo' ? 'Hypotension prevails' : '"Normotensive" CS';
+}
+
+function drugRow(name, note){
+  return `<div class="drug-row">
+    <div><div class="drug-name">${name}</div><div class="rationale">${note || rationale[name] || ''}</div></div>
+    <div class="drug-dose">${doses[name] || ''}</div>
+  </div>`;
+}
+
+function render(){
+  badgeText();
+  const first = document.getElementById('firstLine');
+  const second = document.getElementById('secondLine');
+  const flags = document.getElementById('flags');
+  let firstHTML = '', flagHTML = '';
+
+  if(state.stage===2){
+    firstHTML += drugRow('Vasopressin', 'Metabolic-inefficiency stage: consider replacing norepinephrine rather than escalating its dose further.');
+  } else if(state.hd==='hypo'){
+    firstHTML += drugRow('Norepinephrine');
+  } else {
+    const opts = inodilatorLine[state.aet].normo.filter(d=>{
+      if(state.bb==='no') return true;
+      return d!=='Dobutamine' || false; // keep dobutamine but flag below
+    });
+    opts.forEach(d=>{ firstHTML += drugRow(d); });
+  }
+
+  if(state.stage===1){
+    flagHTML += `<div class="flag warn"><span class="dot">!</span><div><strong>Mechanical inefficiency stage.</strong> Reassess volume status and microcirculatory signs before further norepinephrine up-titration; this is the window to consider short-term MCS rather than pushing catecholamine dose.</div></div>`;
+  }
+
+  second.innerHTML = drugRow('Norepinephrine', 'Combine with an inodilator once hypotension is the dominant problem despite initial inotrope, or vice versa.') +
+    secondLineMap[state.aet].map(d=>drugRow(d)).join('');
+
+  if(state.bb==='yes'){
+    flagHTML += `<div class="flag warn"><span class="dot">!</span><div><strong>Chronic β-blocker on board.</strong> Milrinone or levosimendan preferred over dobutamine — dobutamine's effect is blunted by β-blockade and, per SURVIVE/DOREMI sub-analyses, can raise vascular resistance with a blunted CO response.</div></div>`;
+  }
+  if(state.renal==='impaired' && (state.hd==='normo')){
+    flagHTML += `<div class="flag warn"><span class="dot">!</span><div><strong>Renal impairment.</strong> Milrinone is renally cleared and its hypotensive/arrhythmic effects can persist for hours if it accumulates — use cautiously with dose adjustment, or favour dobutamine/levosimendan.</div></div>`;
+  }
+  if(state.brady==='yes'){
+    flagHTML += `<div class="flag warn"><span class="dot">!</span><div><strong>Bradycardia risk noted.</strong> Dobutamine or epinephrine can counterbalance bradycardia theoretically better than PDE-III inhibitors; if persistent, pacing is indicated — this is particularly important in RV failure.</div></div>`;
+  }
+  if(state.aet==='rv'){
+    flagHTML += `<div class="flag warn"><span class="dot">!</span><div><strong>RV-predominant CS.</strong> Epinephrine and dopamine are discouraged (OptimaCC / SOAP-II). Levosimendan and PDE-III inhibitors are preferred over dobutamine when pulmonary hypertension is present, as they combine inotropy with pulmonary vasodilation.</div></div>`;
+  }
+  flagHTML += `<div class="flag avoid"><span class="dot">✕</span><div><strong>Not recommended as first-line in CS:</strong> dopamine (higher 28-day mortality and arrhythmia in the CS subgroup of SOAP-II) and epinephrine (higher refractory-shock rate in OptimaCC; consistently worse outcome in the pooled meta-analysis, OR 3.3). Do not combine two PDE-III inhibitors, or a PDE-III inhibitor with levosimendan — synergistic vasodilation risks hypotension.</div></div>`;
+
+  first.innerHTML = firstHTML;
+  flags.innerHTML = flagHTML;
+
+  document.getElementById('evidenceNote').innerHTML =
+    `<strong>Key trials behind this pathway:</strong> SOAP-II (dopamine vs norepinephrine), OptimaCC (epinephrine vs norepinephrine, AMI-CS), DOREMI (dobutamine vs milrinone), LIDO/SURVIVE (levosimendan vs dobutamine). None showed a mortality benefit for one strategy over another in the primary CS population — selection here is driven by haemodynamic profile and safety signal, not proven survival advantage.`;
+}
+
+setStage(0);
+render();
+</script>
+</body>
+</html>
