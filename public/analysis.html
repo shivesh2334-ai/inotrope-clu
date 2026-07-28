@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS Vasoactive Platform — Analysis Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F6F6; --surface:#FFFFFF; --ink:#132126; --ink-soft:#48595E; --line:#D8E1E1;
+    --teal:#0E6B66; --teal-deep:#0A4F4C; --teal-tint:#E4F1EF;
+    --amber:#9A5B1E; --amber-tint:#FBEEDD; --red:#A3352E; --red-tint:#F8E7E4;
+    --mono:'IBM Plex Mono', monospace; --serif:'Source Serif 4', Georgia, serif; --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; line-height:1.5;}
+  .wrap{max-width:960px; margin:0 auto; padding:28px 20px 60px;}
+  .site-nav{display:flex; gap:16px; font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:14px;}
+  .site-nav a{color:var(--ink-soft); text-decoration:none; padding-bottom:2px; border-bottom:2px solid transparent;}
+  .site-nav a:hover{color:var(--teal-deep);}
+  .site-nav a.active{color:var(--teal-deep); border-bottom-color:var(--teal);}
+  header{border-bottom:2px solid var(--ink); padding-bottom:16px; margin-bottom:22px;}
+  .brand-eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal-deep); margin-bottom:6px;}
+  h1{font-family:var(--serif); font-weight:600; font-size:28px; letter-spacing:-.01em; margin-bottom:6px;}
+  p{color:var(--ink-soft); font-size:14px;}
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:20px;}
+  .panel h2{font-family:var(--serif); font-size:19px; margin-bottom:10px;}
+  label{display:block; font-size:12.5px; font-weight:600; margin:12px 0 4px;}
+  input[type=file]{width:100%; padding:9px 10px; border:1px dashed var(--line); border-radius:6px; font-size:13px; background:var(--bg);}
+  input[type=text]{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-family:var(--sans); font-size:13.5px;}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:3px;}
+  button{margin-top:16px; background:var(--teal-deep); color:#fff; border:none; border-radius:6px; padding:11px 18px; font-size:13.5px; font-weight:600; cursor:pointer;}
+  button:hover{background:var(--teal);}
+  #status{margin-top:12px; font-size:13px; padding:10px 12px; border-radius:6px; display:none;}
+  #status.ok{display:block; background:var(--teal-tint); color:var(--teal-deep); border:1px solid var(--teal);}
+  #status.err{display:block; background:var(--amber-tint); color:var(--amber); border:1px solid var(--amber);}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:10px;}
+  th, td{padding:7px 9px; border-bottom:1px solid var(--line); text-align:left;}
+  th{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);}
+  .p-sig{color:var(--teal-deep); font-weight:700;}
+  .disclaimer{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--amber); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--ink-soft); margin-top:20px;}
+  #results{display:none;}
+  svg text{font-family:var(--mono); font-size:10px; fill:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="site-nav">
+    <a href="/">Decision Support</a>
+    <a href="/research">Research Hub</a>
+    <a href="/analysis" class="active">Analysis Hub</a>
+  </nav>
+
+  <header>
+    <div class="brand-eyebrow">EMC Digitals · Exploratory Analysis</div>
+    <h1>Analysis Hub</h1>
+    <p>Upload a CSV, choose the group/continuous/categorical/time-event columns, and run Welch's t-test / one-way ANOVA / chi-square / Kaplan-Meier + log-rank directly in the browser (via a pure-JS server-side engine — no Python required).</p>
+  </header>
+
+  <div class="panel">
+    <h2>1. Upload data</h2>
+    <label>CSV file</label>
+    <input type="file" id="csvFile" accept=".csv">
+    <p class="hint">Try <code>analytics/sample_data.csv</code> from the repo if you just want to see it work.</p>
+  </div>
+
+  <div class="panel">
+    <h2>2. Configure columns</h2>
+    <div class="row">
+      <div>
+        <label>Group column</label>
+        <input type="text" id="groupCol" placeholder="first_line_drug">
+      </div>
+      <div>
+        <label>Continuous columns (comma-separated)</label>
+        <input type="text" id="continuousCols" placeholder="age,map_1h,lactate_baseline,icu_los_days">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Categorical columns (comma-separated)</label>
+        <input type="text" id="categoricalCols" placeholder="sex,scai_stage,aetiology">
+      </div>
+      <div></div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Time column (survival, optional)</label>
+        <input type="text" id="timeCol" placeholder="icu_los_days">
+      </div>
+      <div>
+        <label>Event column (1 = event, 0 = censored, optional)</label>
+        <input type="text" id="eventCol" placeholder="mortality_30d">
+      </div>
+    </div>
+    <button id="runBtn">Run analysis</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel" id="results">
+    <h2>Results</h2>
+    <div id="descriptiveOut"></div>
+    <div id="comparisonsOut"></div>
+    <div id="kmOut"></div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>What this does not do.</strong> No Shapiro-Wilk normality test — the parametric test (Welch's t-test / one-way ANOVA) always runs, without falling back to Mann-Whitney/Kruskal-Wallis for skewed data. Multivariable logistic regression and Kaplan-Meier confidence bands are Python-only (<code>analytics/cs_stats_engine.py</code>). For manuscript-grade analysis, use that CLI instead.
+  </div>
+</div>
+
+<script>
+let parsedRows = [];
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, "\n").trim().split("\n");
+  const headers = lines[0].split(",").map((h) => h.trim());
+  return lines.slice(1).filter((l) => l.length).map((line) => {
+    const cells = line.split(",");
+    const row = {};
+    headers.forEach((h, i) => {
+      const raw = (cells[i] || "").trim();
+      const num = Number(raw);
+      row[h] = raw !== "" && !Number.isNaN(num) ? num : raw;
+    });
+    return row;
+  });
+}
+
+document.getElementById('csvFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  parsedRows = parseCSV(text);
+  const statusEl = document.getElementById('status');
+  statusEl.className = 'ok';
+  statusEl.textContent = `Loaded ${parsedRows.length} rows.`;
+});
+
+function fmtP(p) {
+  if (p === null || p === undefined || Number.isNaN(p)) return '—';
+  const txt = p < 0.001 ? '<0.001' : p.toFixed(3);
+  return p < 0.05 ? `<span class="p-sig">${txt}</span>` : txt;
+}
+
+function renderDescriptive(descriptive, groupNames) {
+  let html = '<h3 style="margin-top:14px; font-size:15px;">Descriptive</h3><table><thead><tr><th>Variable</th>' +
+    groupNames.map((g) => `<th>${g}</th>`).join('') + '</tr></thead><tbody>';
+  for (const [varName, byGroup] of Object.entries(descriptive)) {
+    html += `<tr><td>${varName}</td>`;
+    for (const g of groupNames) {
+      const d = byGroup[g] || {};
+      let cell;
+      if (d.summary) {
+        cell = d.summary;
+      } else if (d && typeof d === 'object') {
+        cell = Object.entries(d).map(([k, v]) => `${k}: ${v}%`).join(', ') || '—';
+      } else {
+        cell = d || '—';
+      }
+      html += `<td>${cell}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderComparisons(comparisons) {
+  let html = '<h3 style="margin-top:14px; font-size:15px;">Group comparisons</h3><table><thead><tr><th>Variable</th><th>Test</th><th>Statistic</th><th>p-value</th></tr></thead><tbody>';
+  for (const [varName, cmp] of Object.entries(comparisons)) {
+    html += `<tr><td>${varName}</td><td>${cmp.test}</td><td>${Number(cmp.statistic).toFixed(3)}</td><td>${fmtP(cmp.p_value)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderKM(km) {
+  if (!km) return '';
+  const groupNames = Object.keys(km.curves);
+  const colors = ['#0E6B66', '#9A5B1E', '#A3352E', '#48595E', '#0A4F4C'];
+  const width = 600, height = 320, pad = 46;
+  const maxTime = Math.max(1, ...groupNames.flatMap((g) => km.curves[g].map((s) => s.time)));
+
+  const x = (t) => pad + (t / maxTime) * (width - 2 * pad);
+  const y = (s) => pad + (1 - s) * (height - 2 * pad);
+
+  let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+  // axes
+  svg += `<line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#48595E"/>`;
+  svg += `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#48595E"/>`;
+  svg += `<text x="${width / 2}" y="${height - 8}" text-anchor="middle">Time</text>`;
+  svg += `<text x="14" y="${height / 2}" transform="rotate(-90 14 ${height / 2})" text-anchor="middle">Survival probability</text>`;
+  [0, 0.25, 0.5, 0.75, 1].forEach((v) => {
+    svg += `<text x="${pad - 8}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+  });
+
+  groupNames.forEach((g, gi) => {
+    const steps = km.curves[g];
+    let d = `M ${x(0)} ${y(1)}`;
+    for (let i = 1; i < steps.length; i++) {
+      const prev = steps[i - 1];
+      const cur = steps[i];
+      d += ` L ${x(cur.time)} ${y(prev.survival)} L ${x(cur.time)} ${y(cur.survival)}`;
+    }
+    svg += `<path d="${d}" fill="none" stroke="${colors[gi % colors.length]}" stroke-width="2"/>`;
+    svg += `<text x="${width - pad - 6}" y="${pad + 14 * gi}" text-anchor="end" fill="${colors[gi % colors.length]}" font-weight="600">${g}</text>`;
+  });
+  svg += '</svg>';
+
+  const survivalRows = groupNames.map((g) => `<tr><td>${g}</td><td>${(km.survival_at_last_followup[g] * 100).toFixed(1)}%</td></tr>`).join('');
+
+  return `<h3 style="margin-top:14px; font-size:15px;">Kaplan-Meier</h3>${svg}
+    <table><thead><tr><th>Group</th><th>Survival at last follow-up</th></tr></thead><tbody>${survivalRows}</tbody></table>
+    <p class="hint">Log-rank p-value: ${fmtP(km.logrank_p)}</p>`;
+}
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('status');
+  const resultsEl = document.getElementById('results');
+  statusEl.className = '';
+  statusEl.removeAttribute('style');
+
+  if (!parsedRows.length) {
+    statusEl.className = 'err';
+    statusEl.textContent = 'Upload a CSV file first.';
+    return;
+  }
+
+  const group = document.getElementById('groupCol').value.trim();
+  const continuous = document.getElementById('continuousCols').value.split(',').map((s) => s.trim()).filter(Boolean);
+  const categorical = document.getElementById('categoricalCols').value.split(',').map((s) => s.trim()).filter(Boolean);
+  const time = document.getElementById('timeCol').value.trim();
+  const eventCol = document.getElementById('eventCol').value.trim();
+
+  if (!group) {
+    statusEl.className = 'err';
+    statusEl.textContent = 'Group column is required.';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: parsedRows, group, continuous, categorical, time: time || undefined, event: eventCol || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.className = 'err';
+      statusEl.textContent = data.error || 'Analysis failed.';
+      return;
+    }
+
+    const groupNames = Object.keys(data.groups);
+    document.getElementById('descriptiveOut').innerHTML = renderDescriptive(data.descriptive, groupNames);
+    document.getElementById('comparisonsOut').innerHTML = renderComparisons(data.comparisons);
+    document.getElementById('kmOut').innerHTML = renderKM(data.kaplan_meier);
+    resultsEl.style.display = 'block';
+    statusEl.className = 'ok';
+    statusEl.textContent = `Analysis complete — ${data.n_total} rows across ${groupNames.length} groups.`;
+  } catch (err) {
+    statusEl.className = 'err';
+    statusEl.textContent = 'Network error: ' + err.message;
+  }
+});
+</script>
+</body>
+</html>
