@@ -271,11 +271,10 @@ function render(){
   } else if(state.hd==='hypo'){
     firstHTML += drugRow('Norepinephrine');
   } else {
-    const opts = inodilatorLine[state.aet].normo.filter(d=>{
-      if(state.bb==='no') return true;
-      return d!=='Dobutamine' || false; // keep dobutamine but flag below
-    });
-    opts.forEach(d=>{ firstHTML += drugRow(d); });
+    // All aetiology-appropriate agents are shown regardless of beta-blocker status —
+    // dobutamine is not contraindicated on chronic beta-blockade, just potentially
+    // blunted; that caveat is surfaced via the warning flag below, not by hiding it.
+    inodilatorLine[state.aet].normo.forEach(d=>{ firstHTML += drugRow(d); });
   }
 
   if(state.stage===1){
