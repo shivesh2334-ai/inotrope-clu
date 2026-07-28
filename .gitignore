@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+figures/
+results*.json
+*.log
+.DS_Store
+.env
+.vercel
