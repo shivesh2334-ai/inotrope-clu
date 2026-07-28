@@ -32,6 +32,11 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`CS Vasoactive Platform running on http://localhost:${PORT}`);
-});
+// Start the server only when run directly (not when imported by Vercel serverless)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`CS Vasoactive Platform running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
